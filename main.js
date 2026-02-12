@@ -1,3 +1,54 @@
+/*═══════════════════════════════════════════════════════════════════════════════
+ * VETERINARY VR ANATOMY VIEWER - MAIN APPLICATION FILE
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * 
+ * This file contains the core application logic for the interactive 3D anatomy
+ * viewer. It handles:
+ *   - 3D scene setup and rendering
+ *   - Model loading and management
+ *   - User interactions (mouse, touch, VR controllers)
+ *   - UI management (sidebar, bone list, search)
+ *   - Quiz/assessment functionality
+ *   - VR/XR mode support
+ * 
+ * FILE STRUCTURE:
+ *   1. IMPORTS & DEPENDENCIES (lines ~52- 70)
+ *   2. GLOBAL VARIABLES & STATE (lines ~84-172)
+ *   3. PAGE NAVIGATION SYSTEM (lines ~186-259)
+ *   4. MODEL SELECTION & INITIALIZATION (lines ~272-327)
+ *   5. BONE SELECTION & INTERACTION (lines ~335-471)
+ *   6. SCENE INITIALIZATION (init function) (lines ~382-774)
+ *   7. BUTTON CLICK HANDLERS (lines ~775-1058)
+ *   8. WEB UI CONTROLS SETUP (lines ~1059-1143)
+ *   9. QUIZ/ASSESSMENT SYSTEM (lines ~1159-1302)
+ *   10. BONE HOVER/SELECTION CALLBACKS (lines ~1287-1337)
+ *   11. ANIMATION & RENDER LOOP (lines ~1340-1595)
+ *   12. VR/XR SYSTEM (lines ~1598-1857)
+ *   13. UTILITY FUNCTIONS (lines ~1819-1914)
+ * 
+ * DEVELOPER NOTES:
+ *   - Search for "===" to jump between major sections
+ *   - Global state variables are prefixed with CAPITALS (e.g., SELECTED_BONES)
+ *   - Main render loop is in animate() and render() functions
+ *   - VR functionality is in onStartXR() and related functions
+ * 
+ *═══════════════════════════════════════════════════════════════════════════════*/
+
+
+
+
+/*═══════════════════════════════════════════════════════════════════════════════
+ * SECTION 1: IMPORTS & DEPENDENCIES
+ *═══════════════════════════════════════════════════════════════════════════════
+ * Import all required libraries and modules:
+ *   - THREE.js for 3D rendering
+ *   - OrbitControls for camera movement
+ *   - GLTFLoader for loading 3D models
+ *   - VRButton for entering VR mode
+ *   - Custom classes for models, UI, and quizzes
+ *═══════════════════════════════════════════════════════════════════════════════*/
+
+
 // For static loading (comment out for dynamic loading and make sure up to date)
 import  * as THREE from './js/modules/three.js';
 import { OrbitControls } from './js/modules/OrbitControls.js';
@@ -18,9 +69,17 @@ import Block2D from './js/classes/UI/block2d.js';
 import HTML2D from './js/classes/UI/html2d.js';
 import QuizManager from './js/classes/assessment/quizmanager.js';
 
+/*═══════════════════════════════════════════════════════════════════════════════
+ * SECTION 2: GLOBAL VARIABLES & STATE
+ *═══════════════════════════════════════════════════════════════════════════════
+ * All global variables that track application state and hold references to
+ * important objects like the scene, camera, renderer, and selected bones.
+ * 
+ * NAMING CONVENTION:
+ *   - UPPERCASE variables = State flags (e.g., SELECTED, IN_XR)
+ *   - lowercase variables = Object references (e.g., camera, scene)
+ *═══════════════════════════════════════════════════════════════════════════════*/
 
-
-// -- Global definitions/variables
 
 // Basic scene stuff
 let camera, scene, renderer;
@@ -111,6 +170,19 @@ var selected_model; // Selected model
 // Assessment Mangager
 var quizManager = new QuizManager();
 
+
+/*═══════════════════════════════════════════════════════════════════════════════
+ * SECTION 3: PAGE NAVIGATION SYSTEM
+ *═══════════════════════════════════════════════════════════════════════════════
+ * Simple page system that shows/hides different div sections:
+ *   - home: Model selection screen
+ *   - about: Information about the project
+ *   - contact: Contact form
+ *   - loading: Loading screen with progress bar
+ *   - vr_explorer: Main 3D viewer interface
+ * 
+ * The Page class handles showing/hiding groups of div elements together.
+ *═══════════════════════════════════════════════════════════════════════════════*/
 // Pages used for navigation
 // Just hide and show divs with jquery
 class Page {
@@ -185,6 +257,18 @@ rs();
 // Go to loading screen
 navigate("loading");
 
+/*═══════════════════════════════════════════════════════════════════════════════
+ * SECTION 4: MODEL SELECTION & INITIALIZATION
+ *═══════════════════════════════════════════════════════════════════════════════
+ * Handles the home screen where users select which animal model to view.
+ * Creates a card for each available model with:
+ *   - Preview image
+ *   - Model name
+ *   - Description
+ *   - Click handler that loads the model
+ *═══════════════════════════════════════════════════════════════════════════════*/
+
+
 // On page ready
 $(document).ready(function(){
 
@@ -240,6 +324,13 @@ $(document).ready(function(){
     });
 
 });
+
+/*═══════════════════════════════════════════════════════════════════════════════
+ * SECTION 5: BONE SELECTION & INTERACTION HANDLERS
+ *═══════════════════════════════════════════════════════════════════════════════
+ * Functions that handle when users select, hover, or search for bones.
+ * Manages the bone list sidebar and search functionality.
+ *═══════════════════════════════════════════════════════════════════════════════*/
 
 // On bone selection
 function selectBone(clicked_bone, clicked_canvas) {
@@ -377,6 +468,20 @@ function setBoneListComponentActive(name, should_scroll) {
             model_components.get(LAST_SELECTED_BONES.name).classList.remove("selected-component");
 
 }
+
+/*═══════════════════════════════════════════════════════════════════════════════
+ * SECTION 6: SCENE INITIALIZATION (init function)
+ *═══════════════════════════════════════════════════════════════════════════════
+ * The init() function is called when a user selects a model.
+ * It sets up the entire 3D environment:
+ *   1. Creates camera, scene, and lights
+ *   2. Loads all bone meshes from .glb files
+ *   3. Sets up VR button and controls
+ *   4. Creates UI elements for both web and VR
+ *   5. Sets up quiz system
+ * 
+ * This is the most complex function in the file (~400 lines).
+ *═══════════════════════════════════════════════════════════════════════════════*/
 
 // Initialize WebGL Model
 async function init() {
